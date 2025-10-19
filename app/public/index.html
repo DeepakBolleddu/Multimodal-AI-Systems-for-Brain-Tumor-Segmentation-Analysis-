@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Brain Tumor Segmentation</title>
+  <link rel="stylesheet" href="styles.css" />
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="app">
+    <!-- Sidebar: history / logs -->
+    <aside id="sidebar">
+      <div class="side-header">
+        <div class="logo-dot"></div>
+        <h1 class="sidebar-title">Past History</h1>
+      </div>
+      <div class="side-actions">
+        <button id="new-run-btn" class="btn btn-primary">+ New Run</button>
+      </div>
+      <div id="history-empty" class="muted">No runs yet.</div>
+      <div id="history-list" class="history-list"></div>
+    </aside>
+
+    <!-- Main content -->
+    <main id="main">
+      <!-- Decorative sticky header -->
+      <header class="site-top">
+        <div class="brand">
+          <div class="brand-dot"></div>
+          <div>
+            <div class="brand-title">Brain Tumor Segmentation</div>
+            <div class="brand-subtitle">Upload MRI (NIfTI) → Segment → Urgency Metrics</div>
+          </div>
+        </div>
+        <nav class="top-nav">
+          <a href="#/home">Home</a>
+          <!-- <a href="/health" target="_blank" rel="noopener">/health</a>
+          <a href="/dataset" target="_blank" rel="noopener">/dataset</a> -->
+        </nav>
+      </header>
+
+      <div id="route-root"></div>
+    </main>
+  </div>
+
+  <!-- ===================== Templates ===================== -->
+
+  <!-- Home (hero + centered upload + dataset) -->
+  <template id="tpl-home">
+    <section class="hero">
+      <div class="hero-overlay"></div>
+      <div class="hero-content">
+        <h2>Brain Tumor Segmentation</h2>
+        <p>
+          Upload a brain MRI in <strong>NIfTI</strong> format to automatically segment the tumor,
+          generate the 3D mesh, and compute <strong>volume, surface area, centroid</strong> and
+          an <strong>urgency score</strong>.
+        </p>
+      </div>
+    </section>
+
+    <section class="panel home-panel home-panel-centered">
+      <div class="panel-header">
+        <h3>Upload MRI (NIfTI)</h3>
+        <div id="dataset-status" class="muted"></div>
+      </div>
+
+      <!-- Single centered column for the uploader -->
+      <div class="home-center">
+        <div id="dropzone" class="dropzone fancy-drop">
+          <input id="file-input" type="file" accept=".nii,.nii.gz,.ni" multiple />
+          <div class="dz-instructions">
+            <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+              <path d="M12 16V8m0 0l-3 3m3-3l3 3" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+              <path d="M6 20h12a2 2 0 0 0 2-2v-3M4 15v3a2 2 0 0 0 2 2" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+            </svg>
+            <p><strong>Drag &amp; drop</strong> .nii / .nii.gz here, or click to select</p>
+            <small class="muted">
+              • One file = auto-repeat across 4 channels &nbsp;• Multiple files accepted (FLAIR / T1ce / T1 / T2)
+            </small>
+          </div>
+        </div>
+
+        <div id="upload-status" class="status"></div>
+        <div id="file-list" class="file-list"></div>
+
+        <div class="row gap" style="justify-content:center;">
+          <button id="run-upload" class="btn btn-primary" disabled>Run interface upload</button>
+        </div>
+      </div>
+
+      <!-- Dataset browser stays below the centered upload -->
+      <div class="panel-subheader" style="margin-top:18px;">
+        <h3>Dataset Browser</h3>
+        <div class="muted">Click a patient to run inference from dataset.</div>
+      </div>
+      <div id="patient-list" class="list"></div>
+    </section>
+
+    <section class="info-stripe">
+      <div class="stripe-item"><span>✓</span> Transparent brain mesh with tumor overlay</div>
+      <div class="stripe-item"><span>✓</span> Download NIfTI tumor mask</div>
+      <div class="stripe-item"><span>✓</span> Volume, surface area, centroid &amp; <strong>urgency score</strong></div>
+    </section>
+  </template>
+
+  <!-- Results (unchanged functionality) -->
+  <template id="tpl-run">
+    <section class="panel">
+      <div class="panel-header">
+        <h2>Results</h2>
+        <div id="infer-status" class="muted"></div>
+      </div>
+
+      <div class="grid-2-30">
+        <div>
+          <div id="viewer" class="viewer"></div>
+          <div class="row gap">
+            <button id="btn-show-both"  class="btn btn-ghost active">Both</button>
+            <button id="btn-show-brain" class="btn btn-ghost">Brain</button>
+            <button id="btn-show-tumor" class="btn btn-ghost">Tumor</button>
+            <button id="btn-download-mask" class="btn btn-ghost">Download Mask</button>
+          </div>
+        </div>
+
+        <div>
+          <div class="panel-subheader">
+            <h3>Metrics</h3>
+          </div>
+          <div id="metrics-grid" class="metrics-grid"></div>
+
+          <div class="panel-subheader">
+            <h3>Slice Viewer</h3>
+            <div id="slice-status" class="muted"></div>
+          </div>
+          <canvas id="slice-canvas" width="256" height="256"></canvas>
+          <div class="row space">
+            <input id="slice-slider" type="range" min="0" max="0" value="0" />
+            <span id="slice-index" class="mono">—</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </template>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>
