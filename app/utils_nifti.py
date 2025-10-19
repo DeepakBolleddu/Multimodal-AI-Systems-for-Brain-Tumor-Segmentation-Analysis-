@@ -93,11 +93,25 @@ def marching_mesh(volume_zyx: np.ndarray, level: float = 0.25, spacing_zyx=(1.0,
     if not np.isfinite(vmin) or not np.isfinite(vmax) or (vmax - vmin) <= 1e-6:
         return np.zeros((0,3), np.float32), np.zeros((0,3), np.int32)
     if not (vmin <= level <= vmax):
-        level = vmin + 0.25 * (vmax - vmin)
+        # For brain surface, use a lower threshold to capture more tissue
+        level = vmin + 0.15 * (vmax - vmin)  # Changed from 0.25 to 0.15
         if level <= vmin or level >= vmax:
             return np.zeros((0,3), np.float32), np.zeros((0,3), np.int32)
-    verts, faces, _, _ = measure.marching_cubes(v, level=level, spacing=spacing_zyx)
-    return verts, faces.astype(np.int32)
+    
+    try:
+        verts, faces, _, _ = measure.marching_cubes(v, level=level, spacing=spacing_zyx)
+        return verts, faces.astype(np.int32)
+    except ValueError as e:
+        # If marching cubes fails, try with a different level
+        print(f"Marching cubes failed with level {level}, trying adaptive level...")
+        level = vmin + 0.1 * (vmax - vmin)
+        if vmin < level < vmax:
+            try:
+                verts, faces, _, _ = measure.marching_cubes(v, level=level, spacing=spacing_zyx)
+                return verts, faces.astype(np.int32)
+            except:
+                pass
+        return np.zeros((0,3), np.float32), np.zeros((0,3), np.int32)
 
 def tumor_mesh_from_mask(mask_zyx: np.ndarray, spacing_zyx=(1.0,1.0,1.0)) -> Tuple[np.ndarray, np.ndarray]:
     mask = (mask_zyx.astype(np.uint8) > 0)

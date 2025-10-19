@@ -21,6 +21,7 @@ from utils_nifti import (
     safe_normalize_for_surface, marching_mesh, tumor_mesh_from_mask,
     write_obj, mesh_surface_area_mm2, scan_dataset, MODALITY_ORDER_HINT
 )
+from crf import refine_volume_axial_binary, CRF_PARAMS_DEFAULT
 
 
 # ---------- Settings ----------
@@ -32,6 +33,18 @@ load_dotenv(os.path.join(BASE_DIR, ".env"))  # optional .env
 OUTPUT_DIR = os.getenv("OUTPUT_DIR", os.path.join(BASE_DIR, "static"))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "best_model.pth")
 DATASET_DIR = os.getenv("DATASET_DIR", "")
+
+CRF_ENABLED = True
+
+# Custom CRF parameters based on your configuration
+CRF_PARAMS = {
+    "crf_iters": 5,   # iterations
+    "sxy_g": 2,       # gaussian spatial kernel  
+    "compat_g": 3,    # gaussian weight
+    "sxy_b": 12,      # bilateral spatial kernel
+    "srgb_b": 5,      # bilateral intensity kernel
+    "compat_b": 5     # bilateral weight
+}
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 
@@ -177,7 +190,12 @@ async def infer(
     prob = prob[zslice, yslice, xslice]
 
     # mask
-    mask = (prob > 0.5).astype(np.uint8)  # (D,H,W)
+    if CRF_ENABLED:
+        # FLAIR guidance from channel 0; crop with the same ROI
+        flair_zyx = arr_cdhw[0][zslice, yslice, xslice]  # (Z,Y,X)
+        mask = refine_volume_axial_binary(prob_zyx=prob, flair_zyx=flair_zyx, params=CRF_PARAMS)  # (Z,Y,X) uint8
+    else:
+        mask = (prob > 0.5).astype(np.uint8)
 
     # ---------- Per-run output folder ----------
     run_id = uuid4().hex[:8]
@@ -200,9 +218,18 @@ async def infer(
     spacing_zyx = (float(ref_zooms_xyz[2]), float(ref_zooms_xyz[1]), float(ref_zooms_xyz[0]))
 
     # ---------- Brain mesh (scalar from channel 0) ----------
-    first_ch = arr_cdhw[0]
-    brain_scalar = safe_normalize_for_surface(first_ch)
-    brain_verts, brain_faces = marching_mesh(brain_scalar, level=0.25, spacing_zyx=spacing_zyx)
+    # Use original FLAIR volume (before cropping) for complete brain shape
+    # Get the FLAIR volume from the original volumes
+    flair_idx = 0  # FLAIR is typically the first channel
+    if names:  # if we have names, find FLAIR
+        for i, name in enumerate(names):
+            if 'flair' in name.lower():
+                flair_idx = i
+                break
+    
+    original_flair = vols[flair_idx] if names else vols[0]
+    brain_scalar = safe_normalize_for_surface(original_flair)
+    brain_verts, brain_faces = marching_mesh(brain_scalar, level=0.1, spacing_zyx=spacing_zyx)
 
     # ---------- Tumor mesh ----------
     tumor_verts, tumor_faces = tumor_mesh_from_mask(mask, spacing_zyx=spacing_zyx)

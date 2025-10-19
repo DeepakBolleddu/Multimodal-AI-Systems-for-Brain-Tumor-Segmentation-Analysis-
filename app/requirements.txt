@@ -8,3 +8,4 @@ pydantic==2.9.2
 python-multipart==0.0.9
 python-dotenv==1.0.1
 torch>=2.1.0
+pydensecrf==1.0rc2
