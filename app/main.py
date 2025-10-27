@@ -21,7 +21,14 @@ from utils_nifti import (
     safe_normalize_for_surface, marching_mesh, tumor_mesh_from_mask,
     write_obj, mesh_surface_area_mm2, scan_dataset, MODALITY_ORDER_HINT
 )
-from crf import refine_volume_axial_binary, CRF_PARAMS_DEFAULT
+
+# Try to import CRF functionality, disable if not available
+try:
+    from crf import refine_volume_axial_binary, CRF_PARAMS_DEFAULT
+    CRF_AVAILABLE = True
+except ImportError:
+    print("Warning: CRF module not available. CRF functionality will be disabled.")
+    CRF_AVAILABLE = False
 
 
 # ---------- Settings ----------
@@ -34,7 +41,7 @@ OUTPUT_DIR = os.getenv("OUTPUT_DIR", os.path.join(BASE_DIR, "static"))
 MODEL_PATH = os.path.join(BASE_DIR, "models", "best_model.pth")
 DATASET_DIR = os.getenv("DATASET_DIR", "")
 
-CRF_ENABLED = True
+CRF_ENABLED = False  # Temporarily disabled due to pydensecrf installation issues
 
 # Custom CRF parameters based on your configuration
 CRF_PARAMS = {
@@ -190,7 +197,7 @@ async def infer(
     prob = prob[zslice, yslice, xslice]
 
     # mask
-    if CRF_ENABLED:
+    if CRF_ENABLED and CRF_AVAILABLE:
         # FLAIR guidance from channel 0; crop with the same ROI
         flair_zyx = arr_cdhw[0][zslice, yslice, xslice]  # (Z,Y,X)
         mask = refine_volume_axial_binary(prob_zyx=prob, flair_zyx=flair_zyx, params=CRF_PARAMS)  # (Z,Y,X) uint8
