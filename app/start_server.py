@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-启动脚本 - 直接运行FastAPI应用
+Startup script - Direct FastAPI application runner
 """
 import uvicorn
 from main import app
