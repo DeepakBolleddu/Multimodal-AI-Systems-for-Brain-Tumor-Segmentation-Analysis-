@@ -1,0 +1,1 @@
+a hybrid 3D deep learning architecture, Pro-SSUNet, which integrates modality-specific feature extraction, attention-based fusion, and a Mamba state-space bottleneck to capture both local detail and long-range spatial dependencies. a DenseCRF post-processing module is incorporated to refine segmentation outputs.
